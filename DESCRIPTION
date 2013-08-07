@@ -1,0 +1,11 @@
+Package: ReX
+Type: Package
+Title: R extractor for XMLA
+Version: 1.0
+Date: 2013-07-18
+Author: Norris 
+Maintainer: Norris <norrisl@simba.com>
+Description: Allow R users to source data from XMLA
+License: GPL-2 | GPL-3
+Depends: Rcpp (>= 0.10.4)
+LinkingTo: Rcpp
