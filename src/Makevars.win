@@ -2,5 +2,3 @@ PKG_CPPFLAGS=-I.
 PKG_LIBS+= -L${R_HOME}/library/Rcpp/libs/i386
 PKG_LIBS+= -lRcpp
 PKG_LIBS+= -lws2_32
-
-##PKG_LIBS+ = $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "Rcpp:::LdFlags()")
