@@ -98,26 +98,19 @@ void parseKeyValuePairs(std::string *kvString, std::vector<char *>& vector)
 	std::size_t frontIndex1 = 0;
 	std::size_t frontIndex2 = 0;
 	std::size_t backIndex = 0;
-	int counter = 0;
 	do
 	{
-		if (counter > 50)
-			break;
 		frontIndex1 = kvString->find("=", backIndex);
-		std::cout << frontIndex1 << std::endl;
 		std::string key = kvString->substr(backIndex, frontIndex1 - backIndex);
 		backIndex = frontIndex1 + 1;
 		frontIndex2 = kvString->find(";", backIndex);
-		std::cout << frontIndex2 << std::endl;
 		std::string value = kvString->substr(backIndex, frontIndex2 - backIndex);
 		backIndex = frontIndex2 + 1;
 		std::string *xmlProperty = new std::string;
 		*xmlProperty = "<" + key + ">" + value + "</" + key + ">";
-		std::cout << *xmlProperty << std::endl;
 		vector.push_back(strdup(xmlProperty->c_str()));
-		counter++;
 	}
-	while (frontIndex1 <= (kvString->length() - 2) && frontIndex2 <= (kvString->length() - 2));
+	while (frontIndex1 != std::string::npos && frontIndex2 != std::string::npos);
 }
 
 void mdDataSetGetNames(Rcpp::CharacterVector &names, ns4__Axes *axes, int i, bool isRow)
