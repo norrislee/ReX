@@ -1,7 +1,7 @@
 xmlaConnect <- function(url, uid="", pwd="")
 {
 	connection <- .Call("RXMLAConnect", as.character(url), as.character(uid), as.character(pwd))
-	if (!is.null(connection))
+	if (class(connection) == "integer")
 		class(connection) <- "XMLA"
 	connection
 }
@@ -23,16 +23,16 @@ xmlaExecute <- function(handle, query, propertyList="")
 	else resultList
 }
 
-xmlaDiscover <- function(handle, requestType, restrictionsList="", propertyList="")
+xmlaDiscover <- function(handle, requestType, restrictionList="", propertyList="")
 {
 	if(!xmlaValidHandle(handle))
 		stop("first argument is not an open XMLA handle")
-	.Call("RXMLADiscover", attr(handle, "Pointer"), as.character(requestType), as.character(restrictionsList), as.character(propertyList))
+	.Call("RXMLADiscover", attr(handle, "Pointer"), as.character(requestType), as.character(restrictionList), as.character(propertyList))
 }
 
 print.XMLA <- function(x, ...)
 {
-    cat("Connection ", x[1], "\nEndpoint: ", attr(x, "Endpoint"), "\nSessionID: ", attr(x, "Session"), "\nUsername: ", attr(x, "Username"), "\nPassword: ", attr(x, "Password"), "\n")
+    cat("Connection ", x[1], "\nURL: ", attr(x, "URL"), "\nSessionID: ", attr(x, "Session"), "\nUsername: ", attr(x, "Username"), "\nPassword: ", attr(x, "Password"), "\n")
     invisible(x)
 }
 
