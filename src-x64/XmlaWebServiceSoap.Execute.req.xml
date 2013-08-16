@@ -11,40 +11,31 @@
   xmlns:ns6="http://schemas.xmlsoap.org/ws/2002/04/secext"
   xmlns:ns1="urn:schemas-microsoft-com:xml-analysis">
  <SOAP-ENV:Header>
-  <ns1:BeginSession></ns1:BeginSession>
-  <ns1:EndSession SessionId=""></ns1:EndSession>
-  <ns1:Session SessionId=""></ns1:Session>
+  <ns1:BeginSession>
+  </ns1:BeginSession>
+  <ns1:EndSession SessionId="">
+  </ns1:EndSession>
+  <ns1:Session SessionId="">
+  </ns1:Session>
   <ns6:Security>
    <ns6:UsernameToken>
     <ns6:Username></ns6:Username>
     <ns6:Password></ns6:Password>
-    <!-- extensibility element(s) -->
-
    </ns6:UsernameToken>
-   <!-- extensibility element(s) -->
-
   </ns6:Security>
  </SOAP-ENV:Header>
  <SOAP-ENV:Body>
    <ns1:Execute>
     <ns1:Command>
      <ns1:Statement></ns1:Statement>
-     <!-- extensibility element(s) -->
-
     </ns1:Command>
     <ns1:Properties>
      <ns1:PropertyList>
 
 
-      <!-- extensibility element(s) -->
-
      </ns1:PropertyList>
-     <!-- extensibility element(s) -->
-
     </ns1:Properties>
     <ns1:Parameters>
-     <!-- extensibility element(s) -->
-
      <!-- extensibility element(s) -->
 
     </ns1:Parameters>

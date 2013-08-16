@@ -58,7 +58,6 @@ RcppExport SEXP RXMLAConnect(SEXP connection, SEXP uid, SEXP pw)
 
 RcppExport SEXP RXMLAClose(SEXP handle)
 {
-	SEXP returnVal;
 	XmlaWebServiceSoapProxy service = XmlaWebServiceSoapProxy(SOAP_XML_DEFAULTNS, SOAP_XML_DEFAULTNS);
 
 	Rcpp::XPtr<XMLAHandle> ptr(handle);
@@ -84,18 +83,14 @@ RcppExport SEXP RXMLAClose(SEXP handle)
 	service.passwd = ptr->password;
 
 	if (service.Execute(connectionString, NULL, &execute, &response) == SOAP_OK) {
+		R_ClearExternalPtr(ptr);
 		std::cout << "Session ended" << std::endl;
-		returnVal = Rcpp::wrap(true);
-	}
-	else {
-		char * errorMessage = service.fault->faultstring;
-		std::cerr << errorMessage << std::endl;
-		returnVal = Rcpp::wrap(false);
+		return Rcpp::wrap(true);
 	}
 	R_ClearExternalPtr(ptr);
-	//Free(handle);
-	
-	return returnVal;
+	char * errorMessage = service.fault->faultstring;
+	std::cerr << errorMessage << std::endl;
+	return Rcpp::wrap(false);
 }
 
 void parseKeyValuePairs(std::string *kvString, std::vector<char *>& vector)
@@ -132,28 +127,32 @@ void mdDataSetGetNames(Rcpp::CharacterVector &names, ns4__Axes *axes, int i, boo
 	names.push_back(name.substr(0, name.size() - 2));
 }
 
-void rowSetParseData(std::vector<ns2__Row *> rows, Rcpp::DataFrame *resultDataFrame, char *colName, bool isChar)
+void rowSetParseData(std::vector<char *> rows, Rcpp::DataFrame *resultDataFrame, char *colName, bool isChar)
 {
 	rapidxml::xml_document<> data;
+	std::string xmlWrapper;
+	char *xmlRow;
+	int textLength;
+	char *parseText;
 	Rcpp::CharacterVector dimension;
 	Rcpp::NumericVector dataColumn;
+
 	for (int row = 0; row < rows.size(); row++)	{
 		bool found = false;
-		for (int rowData = 0; rowData < rows[row]->__any.size(); rowData++)	{
-			char *parseText;
-			int textLength = strlen(rows[row]->__any[rowData]);
-			parseText = new char[textLength+1];
-			parseText = strcpy(parseText, rows[row]->__any[rowData]);
-			data.parse<0>(parseText);
-			if (strcmp(data.first_node()->name(),colName) == 0)	{
-				if (isChar)
-					dimension.push_back(data.first_node()->value());
-				else
-					dataColumn.push_back(atof(data.first_node()->value()));
-				found = true;
-				break;
-			}
-			delete[] parseText;
+		xmlWrapper = "<row>";
+		xmlWrapper = xmlWrapper + rows[row] + "</row>";
+		xmlRow = strdup(xmlWrapper.c_str());
+		textLength = strlen(xmlRow);
+		parseText = new char[textLength+1];
+		parseText = strcpy(parseText, xmlRow);
+		data.parse<0>(parseText);
+		rapidxml::xml_node<char> *rowData = data.first_node()->first_node(colName);
+		if (rowData != NULL) {
+			if (isChar)
+				dimension.push_back(rowData->value());
+			else
+				dataColumn.push_back(atof(rowData->value()));
+			found = true;
 		}
 		if (!found && isChar)
 			dimension.push_back(NA_STRING);
@@ -246,43 +245,42 @@ RcppExport SEXP RXMLAExecute(SEXP handle, SEXP query, SEXP rPropertiesString)
 		}
 		// Parse RowSet
 		else if (response.return_->ns2__root != NULL 
-				&& response.return_->ns2__root->xsd__schema != NULL 
-				&& response.return_->ns2__root->__union_ResultXmlRoot != NULL 
-				&& !response.return_->ns2__root->__union_ResultXmlRoot->row.empty()) {
+			&& response.return_->ns2__root->xsd__schema != NULL 
+			&& response.return_->ns2__root->__union_ResultXmlRoot != NULL 
+			&& !response.return_->ns2__root->__union_ResultXmlRoot->row.empty()) {
 
-			std::string rawXML = "<root xmlns=\"urn:schemas-microsoft-com:xml-analysis:rowset\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><xsd:schema targetNamespace=\"urn:schemas-microsoft-com:xml-analysis:rowset\" xmlns:sql=\"urn:schemas-microsoft-com:xml-sql\" elementFormDefault=\"qualified\">";
-			rawXML = rawXML + response.return_->ns2__root->xsd__schema + "</xsd:schema></root>";
-			char *schema = strdup(rawXML.c_str());
-			rapidxml::xml_document<> doc;
-			doc.parse<0>(schema);
+				std::string rawXML = "<root xmlns=\"urn:schemas-microsoft-com:xml-analysis:rowset\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><xsd:schema targetNamespace=\"urn:schemas-microsoft-com:xml-analysis:rowset\" xmlns:sql=\"urn:schemas-microsoft-com:xml-sql\" elementFormDefault=\"qualified\">";
+				rawXML = rawXML + response.return_->ns2__root->xsd__schema + "</xsd:schema></root>";
+				char *schema = strdup(rawXML.c_str());
+				rapidxml::xml_document<> doc;
+				doc.parse<0>(schema);
 
-			// Find XML section containing column names
-			rapidxml::xml_node<char> *rowNode = doc.first_node()->first_node()->first_node("xsd:complexType");
-			while(rowNode != NULL && strcmp(rowNode->first_attribute("name")->value(), "row") != 0)	{
-				rowNode = rowNode->next_sibling("xsd:complexType");
-			}
-
-			rapidxml::xml_node<char> *schemaElementNode = rowNode->first_node()->first_node();
-			std::vector<ns2__Row *> rows = response.return_->ns2__root->__union_ResultXmlRoot->row;
-			Rcpp::DataFrame resultDataFrame;
-			rapidxml::xml_document<> data;
-			Rcpp::CharacterVector colNames;
-			char *colName;
-
-			while(schemaElementNode != NULL) {
-				colName = schemaElementNode->first_attribute("name")->value();
-				colNames.push_back(colName);
-				if (schemaElementNode->first_attribute("type") != 0) {
-					rowSetParseData(rows, &resultDataFrame, colName, true);
+				// Find XML section containing column names
+				rapidxml::xml_node<char> *rowNode = doc.first_node()->first_node()->first_node("xsd:complexType");
+				while(rowNode != NULL && strcmp(rowNode->first_attribute("name")->value(), "row") != 0)	{
+					rowNode = rowNode->next_sibling("xsd:complexType");
 				}
-				else {
-					rowSetParseData(rows, &resultDataFrame, colName, false);
+
+				rapidxml::xml_node<char> *schemaElementNode = rowNode->first_node()->first_node();
+				std::vector<char *> rows = response.return_->ns2__root->__union_ResultXmlRoot->row;
+				Rcpp::DataFrame resultDataFrame;
+				Rcpp::CharacterVector colNames;
+				char *colName;
+
+				while(schemaElementNode != NULL) {
+					colName = schemaElementNode->first_attribute("name")->value();
+					colNames.push_back(colName);
+					if (schemaElementNode->first_attribute("type") != 0) {
+						rowSetParseData(rows, &resultDataFrame, colName, true);
+					}
+					else {
+						rowSetParseData(rows, &resultDataFrame, colName, false);
+					}
+					schemaElementNode = schemaElementNode->next_sibling();
 				}
-				schemaElementNode = schemaElementNode->next_sibling();
-			}
-			resultDataFrame.attr("names") = colNames;
-			service.destroy();
-			return resultDataFrame;
+				resultDataFrame.attr("names") = colNames;
+				service.destroy();
+				return resultDataFrame;
 		}
 		service.destroy();
 		return Rcpp::wrap(true);
@@ -332,28 +330,42 @@ RcppExport SEXP RXMLADiscover(SEXP handle, SEXP request, SEXP rRestrictionsStrin
 	service.userid = ptr->userName;
 	service.passwd = ptr->password;
 
-	if (service.Discover(connectionString, NULL, &discover, &discoverResponse) == SOAP_OK)
-	{
-		if (discoverResponse.return_->ns2__root != NULL && discoverResponse.return_->ns2__root->__union_ResultXmlRoot != NULL && !discoverResponse.return_->ns2__root->__union_ResultXmlRoot->row.empty())
-		{
-			std::vector<ns2__Row *> rows = discoverResponse.return_->ns2__root->__union_ResultXmlRoot->row;
-			Rcpp::List resultList;
-			for (int i = 0; i < rows.size(); i++)
-			{
-				std::vector<char *> row = rows[i]->__any;
-				Rcpp::CharacterVector rowData;
-				for (std::vector<char *>::iterator iter = row.begin(); iter != row.end(); iter++)
-				{
-					rowData.push_back(*iter);
-				}
-				resultList.push_back(rowData);
-			}
-			service.destroy();
-			return resultList;
+	if (service.Discover(connectionString, NULL, &discover, &discoverResponse) == SOAP_OK) {
+		std::string rawXML = "<root xmlns=\"urn:schemas-microsoft-com:xml-analysis:rowset\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><xsd:schema targetNamespace=\"urn:schemas-microsoft-com:xml-analysis:rowset\" xmlns:sql=\"urn:schemas-microsoft-com:xml-sql\" elementFormDefault=\"qualified\">";
+		rawXML = rawXML + discoverResponse.return_->ns2__root->xsd__schema + "</xsd:schema></root>";
+		char *schema = strdup(rawXML.c_str());
+		rapidxml::xml_document<> doc;
+		doc.parse<0>(schema);
+
+		// Find XML section containing column names
+		rapidxml::xml_node<char> *rowNode = doc.first_node()->first_node()->first_node("xsd:complexType");
+		while(rowNode != NULL && strcmp(rowNode->first_attribute("name")->value(), "row") != 0)	{
+			rowNode = rowNode->next_sibling("xsd:complexType");
 		}
+
+		rapidxml::xml_node<char> *schemaElementNode = rowNode->first_node()->first_node();
+		std::vector<char *> rows = discoverResponse.return_->ns2__root->__union_ResultXmlRoot->row;
+		Rcpp::DataFrame resultDataFrame;
+		Rcpp::CharacterVector colNames;
+		char *colName;
+
+		while(schemaElementNode != NULL) {
+			colName = schemaElementNode->first_attribute("name")->value();
+			colNames.push_back(colName);
+			if (schemaElementNode->first_attribute("type") != 0) {
+				rowSetParseData(rows, &resultDataFrame, colName, true);
+			}
+			else {
+				rowSetParseData(rows, &resultDataFrame, colName, false);
+			}
+			schemaElementNode = schemaElementNode->next_sibling();
+		}
+		resultDataFrame.attr("names") = colNames;
+		service.destroy();
+		return resultDataFrame;
 	}
-	else
-	{
+
+	else {
 		std::cerr << service.fault->faultstring << std::endl;
 	}
 	service.destroy();

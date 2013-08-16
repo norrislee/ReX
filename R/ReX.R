@@ -27,7 +27,10 @@ xmlaDiscover <- function(handle, requestType, restrictionList="", propertyList="
 {
 	if(!xmlaValidHandle(handle))
 		stop("first argument is not an open XMLA handle")
-	.Call("RXMLADiscover", attr(handle, "Pointer"), as.character(requestType), as.character(restrictionList), as.character(propertyList))
+	resultList <- .Call("RXMLADiscover", attr(handle, "Pointer"), as.character(requestType), as.character(restrictionList), as.character(propertyList))
+	if(class(resultList) == "list")
+		resultDF <- data.frame(resultList, check.names=FALSE)
+	else resultList
 }
 
 print.XMLA <- function(x, ...)
